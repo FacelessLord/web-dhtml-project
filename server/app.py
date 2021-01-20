@@ -21,9 +21,9 @@ MailController.load(app, DATEFORMAT, HOSTNAME)
 
 
 def read_sensible_data():
-    sensible_data_stream = open('../sensible_data.json', 'rt')
-    json = '\n'.join(sensible_data_stream.readlines())
-    sensible_data_stream.close()
+    with open('./sensible_data.json', 'rt') as sensible_data_stream:
+        json = '\n'.join(sensible_data_stream.readlines())
+
     return decoder.decode(json)
 
 
