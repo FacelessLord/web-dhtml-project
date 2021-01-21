@@ -18,8 +18,10 @@ export class SearchPage extends React.Component<{}, SearchPageState> {
   }
 
   copyDateToDate(a: Moment, target: Moment) {
-    return target.day(a.day()).month(a.month()).year(a.year())
+    return target.year(a.year()).month(a.month()).date(a.date())
   }
+
+  DATEFORMAT = "HH:mm DD.MM.yyyy";
 
   render() {
     return <div className={"background"}>
@@ -35,8 +37,10 @@ export class SearchPage extends React.Component<{}, SearchPageState> {
               format="DD.MM.yyyy"
               value={this.state.startDatetime}
               onChange={(datetime: MaterialUiPickersDate) => {
+                console.log("2q2r")
                 if (datetime) {
                   const newStart = this.copyDateToDate(datetime, this.state.startDatetime)
+                  console.log(newStart)
                   const newEnd = this.copyDateToDate(datetime, this.state.endDatetime)
 
                   this.setState({startDatetime: newStart, endDatetime: newEnd})
@@ -84,9 +88,13 @@ export class SearchPage extends React.Component<{}, SearchPageState> {
               onChange={e => this.setState({seatsCount: +e.target.value})}
               InputLabelProps={{
                 shrink: true,
-              }}
-            />
-            <Button variant="contained" color="primary">
+              }}/>
+            <Button variant="contained" color="primary" onClick={e => {
+              console.log(this.state.startDatetime.format(this.DATEFORMAT))
+              fetch(`http://127.0.0.1:5000/search?startDatetime=${this.state.startDatetime.format(this.DATEFORMAT)}` +
+                `&endDatetime=${this.state.endDatetime.format(this.DATEFORMAT)}&` +
+                `seatsCount=${this.state.seatsCount}`)
+            }}>
               Искать
             </Button>
           </Grid>
