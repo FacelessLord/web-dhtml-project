@@ -26,3 +26,5 @@ yarn-error.log*
 /server/config.py
 /server/.idea/
 /server/data/restaurants.db
+.eslintcache
+package-lock.json
