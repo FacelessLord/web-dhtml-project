@@ -1,17 +1,18 @@
 import os
 from datetime import datetime
 
-from flask import Flask, request
+from flask import Flask, request, make_response
 from json import JSONDecoder
 from controllers import DatabaseController
 from finq import FINQ, Identity
 
 from constants import Fields, Errors, quote_fields
 from controllers import MailController
+from finq_extensions import extract_key
 
 app = Flask(__name__)
 app.config.from_object('config')
-DATEFORMAT = '%H:%M %d.%m.%y'
+DATEFORMAT = '%H:%M %d.%m.%Y'
 HOSTNAME = os.environ.get('HOSTNAME', '--no-hostname--')
 
 decoder = JSONDecoder()
@@ -128,3 +129,22 @@ def confirm_booking(booking_id):
             return quote_fields({Fields.Success: True, Fields.Booking: get_booking(booking_id)})
 
     return quote_fields({Fields.Success: False, Fields.Error: Errors.NoConfirmationCode})
+
+
+@app.route("/search", methods=['GET'])
+def search_tables():
+    if 'restaurants' not in request.args:
+        print(request.args)
+        start = datetime.strptime(request.args["startDatetime"], DATEFORMAT)
+        end = datetime.strptime(request.args["endDatetime"], DATEFORMAT)
+        seat_count = int(request.args["seatsCount"])
+
+        origin = request.headers.get("Origin", "")
+
+        response = make_response(DatabaseController.search_tables(start, end, seat_count)
+                                 .group_by(lambda t: t.restaurant_id)
+                                 .map(lambda l: FINQ(l).map(lambda t: (t.restaurant_id, get_table(t)))
+                                      .self(extract_key))
+                                 .to_dict())
+        response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+        return response

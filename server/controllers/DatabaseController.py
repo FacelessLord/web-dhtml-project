@@ -74,25 +74,21 @@ def datetime_segment_day_intersections(start_time: datetime, end_time: datetime)
     return f
 
 
-def datetime_segment_intersection(start_time: datetime, end_time: datetime):
+def datetime_segment_intersection(start_time: datetime, end_time: datetime, start_time_b: datetime,
+                                  end_time_b: datetime):
     half_width = (end_time - start_time) / 2
     center = start_time + half_width
 
-    def f(booking: Booking):
-        a = booking.booking_start_datetime
-        b = booking.booking_end_datetime
-
-        ab_half_width = (b - a) / 2
-        ab_center = a + ab_half_width
-        return abs(ab_center - center) < (half_width + ab_half_width)
-
-    return f
+    ab_half_width = (end_time_b - start_time_b) / 2
+    ab_center = start_time_b + ab_half_width
+    return (half_width + ab_half_width) - abs(ab_center - center)
 
 
 def booking_intersects_others(table, start_time, end_time) -> bool:
     return FINQ(table.bookings) \
         .filter(datetime_segment_day_intersections(start_time, end_time)) \
-        .filter(datetime_segment_intersection(start_time, end_time)).any()
+        .filter(lambda b: datetime_segment_intersection(start_time, end_time, b.booking_start_datetime,
+                                                        b.booking_end_datetime) > 0).any()
 
 
 def pre_book_table(start_time: datetime, end_time: datetime, email: str, table_id: int) -> \
@@ -158,3 +154,14 @@ def get_tables() -> List[Table]:
 
 def get_booking(id: int) -> Booking:
     return db.session.query(Booking).get(id)
+
+
+def search_tables(start_moment: datetime, end_moment: datetime, seat_count: int, tolerance=timedelta(minutes=30)) \
+        -> FINQ[Table]:
+    # if existing booking intersects with search more than in 30 minutes, then this table is dropped
+    return FINQ(db.session.query(Table)) \
+        .filter(lambda t: t.seat_count >= seat_count) \
+        .filter(lambda t: FINQ(t.bookings)
+                .filter(lambda b: datetime_segment_intersection(start_moment, end_moment, b.booking_start_datetime,
+                                                                b.booking_end_datetime) > tolerance)
+                .none())
