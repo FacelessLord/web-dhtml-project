@@ -1,0 +1,16 @@
+
+.restaurantCard{
+    width: 540px;
+    height: 153px;
+    margin: 20px auto 0;
+    text-align: left;
+}
+
+.restaurantCardAuxiliary{
+    width: 540px;
+    height: 153px;
+    margin: 20px auto 0;
+    box-sizing: border-box;
+    padding: 16px;
+    text-align: left;
+}
