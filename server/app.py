@@ -9,6 +9,7 @@ from finq import FINQ, Identity
 from constants import Fields, Errors, quote_fields
 from controllers import MailController
 from finq_extensions import extract_key
+from controllers import ImageController
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -131,20 +132,36 @@ def confirm_booking(booking_id):
     return quote_fields({Fields.Success: False, Fields.Error: Errors.NoConfirmationCode})
 
 
+def zip_restaurant(rt):
+    restaurant, tables = rt
+    rdict = get_restaurant(restaurant)
+    rdict[Fields.Tables] = tables
+    return quote_fields(rdict)
+
+
 @app.route("/search", methods=['GET'])
 def search_tables():
     if 'restaurants' not in request.args:
-        print(request.args)
         start = datetime.strptime(request.args["startDatetime"], DATEFORMAT)
         end = datetime.strptime(request.args["endDatetime"], DATEFORMAT)
         seat_count = int(request.args["seatsCount"])
 
         origin = request.headers.get("Origin", "")
 
-        response = make_response(DatabaseController.search_tables(start, end, seat_count)
-                                 .group_by(lambda t: t.restaurant_id)
-                                 .map(lambda l: FINQ(l).map(lambda t: (t.restaurant_id, get_table(t)))
-                                      .self(extract_key))
-                                 .to_dict())
+        response = make_response(
+            {Fields.Restaurants.value: DatabaseController.search_tables(start, end, seat_count)
+                .group_by(lambda t: t.restaurant_id)
+                .map(lambda l: FINQ(l).map(lambda t: (t.restaurant_id, get_table(t)))
+                     .self(extract_key))
+                .map(lambda kl: (DatabaseController.get_restaurant(kl[0]), kl[1]))
+                .map(zip_restaurant)
+                .to_list()})
         response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
         return response
+
+
+@app.route("/static/restaurant/image")
+def get_restaurant_image():
+    restaurant_id = request.args["restaurant_id"]
+
+    return ImageController.get_image("images/restaurants/", restaurant_id)

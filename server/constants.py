@@ -42,6 +42,7 @@ class Fields(Enum):
     Id = "id"
     BookingStartDatetime = "booking_start_datetime"
     BookingEndDatetime = "booking_end_datetime"
+    Tables = "tables"
     TableId = "table_id"
     TableNumber = "table_number"
     Email = "email"
@@ -51,6 +52,7 @@ class Fields(Enum):
     WorkdayEnd = "workdayEnd"
     RestaurantName = "restaurantName"
     Bookings = "bookings"
+    Restaurants = "restaurants"
 
     def __str__(self):
         return self.value
