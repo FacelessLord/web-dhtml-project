@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import {
   Button,
   Card, CardActions, CardContent,
-  CardHeader, CardMedia, Collapse, Container, createStyles,
+  CardHeader, CardMedia, Checkbox, Collapse, Container, createStyles, FormControlLabel,
   Grid, IconButton, makeStyles,
   TextField, Theme, Typography
 } from "@material-ui/core";
@@ -28,6 +28,7 @@ class SearchPageState {
   seatsCount: number = 2;
   restaurants: Restaurant[] = [];
   state: "await" | "loading" | "loaded" | "errored" = "await"
+  searchAll: boolean = false;
 }
 
 export const DATEFORMAT = "HH:mm DD.MM.yyyy";
@@ -114,6 +115,12 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
               InputLabelProps={{
                 shrink: true,
               }}/>
+            <FormControlLabel
+              control={<Checkbox checked={this.state.searchAll}
+                                 color="primary"
+                                 onChange={() => this.setState({searchAll: !this.state.searchAll})}
+                                 name="searchAllCheckBox"/>}
+              label={this.state.searchAll ? "Искать по всем ресторанам" : "Искать только подходящие рестораны"}/>
             <Button variant="contained" color="primary" onClick={e => {
               const startDatetime = this.state.startDate.clone().hour(this.state.startTime.hour()).minute(this.state.startTime.minute())
               const endDatetime = this.state.startDate.clone().hour(this.state.endTime.hour()).minute(this.state.endTime.minute())
@@ -123,12 +130,13 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
               this.setState({state: "loading"})
               fetch(Host + `/search?startDatetime=${startDatetime.format(DATEFORMAT)}` +
                 `&endDatetime=${endDatetime.format(DATEFORMAT)}&` +
-                `seatsCount=${this.state.seatsCount}`)
+                `seatsCount=${this.state.seatsCount}&` +
+                `searchAll=${this.state.searchAll}`)
                 .then(t => t.json())
                 .then(result => this.setState({restaurants: result.restaurants, state: "loaded"}))
-                .catch(e => this.setState({state: "errored"}))
                 .then(() => document.getElementById("resultAnchor")
                   ?.scrollIntoView({block: "start", behavior: "smooth"}))
+                .catch(e => this.setState({state: "errored"}))
             }}>
               Искать
             </Button>
