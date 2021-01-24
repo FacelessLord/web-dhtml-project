@@ -61,15 +61,20 @@ body {
     margin-left: auto;
 }
 
-.restaurantInfo.restaurantInfo {
+.restaurantHeader.restaurantHeader {
     text-align: left;
     align-items: flex-start;
+}
+
+.restaurantInfo.restaurantInfo{
+    padding-right: 0;
 }
 
 .restaurantImage {
     margin: 16px 0 16px 16px;
     min-height: 120px;
     min-width: 160px;
+    border-radius: 4px;
 }
 
 .restaurantCards {
@@ -80,6 +85,9 @@ body {
     color: rgba(0, 0, 0, .5)
 }
 
+.restaurantTables.restaurantTables {
+    padding-top: 0;
+}
 
 @media (prefers-reduced-motion: no-preference) {
     .spin {

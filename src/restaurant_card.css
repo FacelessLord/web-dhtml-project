@@ -1,7 +1,7 @@
 
 .restaurantCard{
-    width: 540px;
-    height: 153px;
+    width: 800px;
+    min-height: 153px;
     margin: 20px auto 0;
     text-align: left;
 }
@@ -13,4 +13,11 @@
     box-sizing: border-box;
     padding: 16px;
     text-align: left;
+}
+
+.tableCard{
+    padding: 16px;
+    box-sizing: content-box;
+    text-align: left;
+    margin: 8px auto 0;
 }

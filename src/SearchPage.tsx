@@ -1,10 +1,10 @@
 import React, {useState} from "react";
 import {
   Button,
-  Card,
-  CardHeader, CardMedia, createStyles,
-  Grid, makeStyles,
-  TextField, Theme
+  Card, CardActions, CardContent,
+  CardHeader, CardMedia, Collapse, Container, createStyles,
+  Grid, IconButton, makeStyles,
+  TextField, Theme, Typography
 } from "@material-ui/core";
 import {KeyboardDatePicker, KeyboardTimePicker, MuiPickersUtilsProvider} from "@material-ui/pickers";
 import {MaterialUiPickersDate} from "@material-ui/pickers/typings/date";
@@ -14,19 +14,23 @@ import {Host, Restaurant} from "./common";
 import {Link} from "react-router-dom";
 import "./restaurant_card.css"
 import {red} from "@material-ui/core/colors";
-import {LoopRounded} from "@material-ui/icons";
+import {ExpandMore, LoopRounded} from "@material-ui/icons";
+import {TableCard} from "./TableCard";
 
 interface SearchPageProps {
   setSearchResults: (r: Restaurant[]) => void;
 }
 
 class SearchPageState {
-  startDatetime: Moment = moment();
-  endDatetime: Moment = moment().add(1, "hour");
+  startTime: Moment = moment();
+  endTime: Moment = moment().add(1, "hour");
+  startDate: Moment = moment();
   seatsCount: number = 2;
   restaurants: Restaurant[] = [];
-  state: "await" | "loading" | "loaded" | "errored" = "loading"
+  state: "await" | "loading" | "loaded" | "errored" = "await"
 }
+
+export const DATEFORMAT = "HH:mm DD.MM.yyyy";
 
 export class SearchPage extends React.Component<SearchPageProps, SearchPageState> {
   state: SearchPageState = new SearchPageState();
@@ -38,7 +42,6 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
     return target.year(a.year()).month(a.month()).date(a.date())
   }
 
-  DATEFORMAT = "HH:mm DD.MM.yyyy";
 
   render() {
     return <div className={"background"}>
@@ -54,15 +57,11 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
               id="date-picker-dialog"
               label="Дата"
               format="DD.MM.yyyy"
-              value={this.state.startDatetime}
+              value={this.state.startDate}
               onChange={(datetime: MaterialUiPickersDate) => {
                 console.log("2q2r")
                 if (datetime) {
-                  const newStart = this.copyDateToDate(datetime, this.state.startDatetime)
-                  console.log(newStart)
-                  const newEnd = this.copyDateToDate(datetime, this.state.endDatetime)
-
-                  this.setState({startDatetime: newStart, endDatetime: newEnd})
+                  this.setState({startDate: datetime})
                 }
               }}
               KeyboardButtonProps={{
@@ -76,13 +75,13 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
                 label="Время начала"
                 format={"HH:mm"}
                 ampm={false}
-                value={this.state.startDatetime}
-                onChange={(startDatetime: MaterialUiPickersDate) => {
-                  if (startDatetime)
-                    if (startDatetime.isAfter(this.state.startDatetime))
-                      this.setState({startDatetime, endDatetime: startDatetime.clone().add(30, 'minutes')})
-                    else
-                      this.setState({startDatetime})
+                value={this.state.startTime}
+                onChange={(startTime: MaterialUiPickersDate) => {
+                  if (startTime)
+                    if (startTime.isAfter(this.state.endTime)) {
+                      this.setState({startTime, endTime: startTime.clone().add(30, 'minutes')})
+                    } else
+                      this.setState({startTime})
                 }}
                 KeyboardButtonProps={{
                   'aria-label': 'change time',
@@ -93,13 +92,13 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
                 label="Время окончания"
                 format={"HH:mm"}
                 ampm={false}
-                value={this.state.endDatetime}
-                onChange={(endDatetime: MaterialUiPickersDate) => {
-                  if (endDatetime)
-                    if (!endDatetime.isAfter(this.state.startDatetime))
-                      this.setState({endDatetime, startDatetime: endDatetime.clone().add(-30, 'minutes')})
+                value={this.state.endTime}
+                onChange={(endTime: MaterialUiPickersDate) => {
+                  if (endTime)
+                    if (endTime.isBefore(this.state.startTime))
+                      this.setState({endTime, startTime: endTime.clone().add(-30, 'minutes')})
                     else
-                      this.setState({endDatetime})
+                      this.setState({endTime})
                 }}
                 KeyboardButtonProps={{
                   'aria-label': 'change time',
@@ -116,10 +115,14 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
                 shrink: true,
               }}/>
             <Button variant="contained" color="primary" onClick={e => {
-              console.log(this.state.startDatetime.format(this.DATEFORMAT))
+              const startDatetime = this.state.startDate.clone().hour(this.state.startTime.hour()).minute(this.state.startTime.minute())
+              const endDatetime = this.state.startDate.clone().hour(this.state.endTime.hour()).minute(this.state.endTime.minute())
+              if (startDatetime.isAfter(endDatetime))
+                endDatetime.add(1, "hour")
+
               this.setState({state: "loading"})
-              fetch(Host + `/search?startDatetime=${this.state.startDatetime.format(this.DATEFORMAT)}` +
-                `&endDatetime=${this.state.endDatetime.format(this.DATEFORMAT)}&` +
+              fetch(Host + `/search?startDatetime=${startDatetime.format(DATEFORMAT)}` +
+                `&endDatetime=${endDatetime.format(DATEFORMAT)}&` +
                 `seatsCount=${this.state.seatsCount}`)
                 .then(t => t.json())
                 .then(result => this.setState({restaurants: result.restaurants, state: "loaded"}))
@@ -179,12 +182,28 @@ function RestaurantCard(props: RestaurantCardProps) {
         image={Host + `/static/restaurant/image?restaurant_id=` + props.restaurant.id}
         title="Paella dish"
       />
-      <CardHeader
-        className={"restaurantInfo"}
-        title={props.restaurant.restaurantName}
-        subheader={`${props.restaurant.tables.length} ${formatSuitableTables(props.restaurant.tables.length)}`}
-      />
+      <Container className={"restaurantInfo"}>
+        <CardHeader
+          className={"restaurantHeader"}
+          title={props.restaurant.restaurantName}
+          subheader={`${props.restaurant.tables.length} ${formatSuitableTables(props.restaurant.tables.length)}`}
+        />
+        <CardActions disableSpacing>
+          <IconButton
+            className={"expandButton " + classes.expand + (expanded ? (" " + classes.expandOpen) : "")}
+            onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded}
+            aria-label="show more">
+            <ExpandMore/>
+          </IconButton>
+        </CardActions>
+      </Container>
     </Grid>
+    <Collapse in={expanded}>
+      <CardContent className={"restaurantTables"}>
+        {props.restaurant.tables.map(t => <TableCard table={t} restaurant={props.restaurant}/>)}
+      </CardContent>
+    </Collapse>
   </Card>)
 }
 
