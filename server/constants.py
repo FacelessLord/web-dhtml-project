@@ -44,7 +44,7 @@ class Fields(Enum):
     BookingEndDatetime = "booking_end_datetime"
     Tables = "tables"
     TableId = "table_id"
-    TableNumber = "table_number"
+    TableNumber = "tableNumber"
     Email = "email"
     RestaurantId = "restaurantId"
     SeatCount = "seatCount"

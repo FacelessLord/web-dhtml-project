@@ -10,6 +10,7 @@ from constants import Fields, Errors, quote_fields
 from controllers import MailController
 from finq_extensions import extract_key
 from controllers import ImageController
+from utils import datetime_segment_day_intersections
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -19,6 +20,7 @@ HOSTNAME = os.environ.get('HOSTNAME', '--no-hostname--')
 decoder = JSONDecoder()
 
 DatabaseController.load(app)
+
 MailController.load(app, DATEFORMAT, HOSTNAME)
 
 
@@ -48,7 +50,20 @@ def get_table(table):
         {Fields.Id: table.id,
          Fields.SeatCount: table.seat_count,
          Fields.TableNumber: table.table_number,
-         Fields.RestaurantId: table.restaurant_id, })
+         Fields.RestaurantId: table.restaurant_id})
+
+
+def get_table_with_bookings(table, start: datetime, end: datetime):
+    return quote_fields(
+        {Fields.Id: table.id,
+         Fields.SeatCount: table.seat_count,
+         Fields.TableNumber: table.table_number,
+         Fields.RestaurantId: table.restaurant_id,
+         Fields.Bookings: FINQ(table.bookings)
+             .filter(datetime_segment_day_intersections(start, end))
+             .map(lambda b: b.id)
+             .map(get_booking)
+             .to_list()})
 
 
 @app.route("/tables", methods=['GET'])
@@ -98,8 +113,8 @@ def get_booking(booking_id):
     booking = DatabaseController.get_booking(booking_id)
     if booking:
         return quote_fields({Fields.Id: booking.id,
-                             Fields.BookingStartDatetime: booking.booking_start_datetime,
-                             Fields.BookingEndDatetime: booking.booking_end_datetime,
+                             Fields.BookingStartDatetime: booking.booking_start_datetime.strftime(DATEFORMAT),
+                             Fields.BookingEndDatetime: booking.booking_end_datetime.strftime(DATEFORMAT),
                              Fields.TableId: booking.table_id,
                              Fields.TableNumber: booking.table.table_number})
     return quote_fields({Fields.Id: booking_id, Fields.Error: Errors.NoBooking})
@@ -151,7 +166,7 @@ def search_tables():
         response = make_response(
             {Fields.Restaurants.value: DatabaseController.search_tables(start, end, seat_count)
                 .group_by(lambda t: t.restaurant_id)
-                .map(lambda l: FINQ(l).map(lambda t: (t.restaurant_id, get_table(t)))
+                .map(lambda l: FINQ(l).map(lambda t: (t.restaurant_id, get_table_with_bookings(t, start, end)))
                      .self(extract_key))
                 .map(lambda kl: (DatabaseController.get_restaurant(kl[0]), kl[1]))
                 .map(zip_restaurant)
