@@ -2,14 +2,16 @@ import re
 from datetime import time, datetime, timedelta
 from typing import List, Union, Tuple, Optional
 
-from finq import FINQ
+from finq import FINQ, TDict
 from flask_sqlalchemy import SQLAlchemy
 
 from formatting import random_code
 
 from constants import Errors
 
-from utils import booking_intersects_others, datetime_segment_intersection
+from utils import booking_intersects_others, datetime_segment_intersection, datetime_segment_day_intersections
+
+from finq_extensions import extract_key
 
 db = SQLAlchemy()
 booking_timeout = timedelta(minutes=10)
@@ -142,3 +144,11 @@ def search_tables(start_moment: datetime, end_moment: datetime, seat_count: int,
                 .filter(lambda b: datetime_segment_intersection(start_moment, end_moment, b.booking_start_datetime,
                                                                 b.booking_end_datetime) > tolerance)
                 .none())
+
+
+def search_all_tables(start_moment: datetime, end_moment: datetime, seat_count: int, tolerance=timedelta(minutes=30)) \
+        -> FINQ[Tuple[Table, List[Booking]]]:
+    # if existing booking intersects with search more than in 30 minutes, then this table is dropped
+    return FINQ(db.session.query(Table)) \
+        .filter(lambda t: t.seat_count >= seat_count) \
+        .map(lambda t: (t, FINQ(t.bookings).filter(datetime_segment_day_intersections(start_moment, end_moment))))

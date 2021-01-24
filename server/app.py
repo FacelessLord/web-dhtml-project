@@ -154,25 +154,55 @@ def zip_restaurant(rt):
     return quote_fields(rdict)
 
 
+def search_suitable_tables():
+    start = datetime.strptime(request.args["startDatetime"], DATEFORMAT)
+    end = datetime.strptime(request.args["endDatetime"], DATEFORMAT)
+    seat_count = int(request.args["seatsCount"])
+
+    return {Fields.Restaurants.value: DatabaseController.search_tables(start, end, seat_count)
+        .group_by(lambda t: t.restaurant_id)
+        .map(lambda l: FINQ(l).map(lambda t: (t.restaurant_id, get_table_with_bookings(t, start, end)))
+             .self(extract_key))
+        .map(lambda kl: (DatabaseController.get_restaurant(kl[0]), kl[1]))
+        .map(zip_restaurant)
+        .to_list()}
+
+
+def zip_table(t):
+    table, bookings = t
+    table_json = get_table(table)
+    table_json[Fields.Bookings] = bookings.map(lambda b: b.id).map(get_booking).to_list()
+    return quote_fields(table_json)
+
+
+def search_all_tables():
+    start = datetime.strptime(request.args["startDatetime"], DATEFORMAT)
+    end = datetime.strptime(request.args["endDatetime"], DATEFORMAT)
+    seat_count = int(request.args["seatsCount"])
+
+    return {Fields.Restaurants.value: DatabaseController.search_all_tables(start, end, seat_count)
+        .group_by(lambda t: t[0].restaurant_id)
+        .map(lambda l: FINQ(l).map(lambda t: (t[0].restaurant_id, zip_table(t)))
+             .self(extract_key))
+        .map(lambda kl: (DatabaseController.get_restaurant(kl[0]), kl[1]))
+        .map(zip_restaurant)
+        .to_list()}
+
+
 @app.route("/search", methods=['GET'])
 def search_tables():
     if 'restaurants' not in request.args:
-        start = datetime.strptime(request.args["startDatetime"], DATEFORMAT)
-        end = datetime.strptime(request.args["endDatetime"], DATEFORMAT)
-        seat_count = int(request.args["seatsCount"])
+        search_all = request.args["searchAll"] == "true"
+        print(search_all)
+        if search_all:
+            response = make_response(search_all_tables())
+        else:
+            response = make_response(search_suitable_tables())
 
-        origin = request.headers.get("Origin", "")
-
-        response = make_response(
-            {Fields.Restaurants.value: DatabaseController.search_tables(start, end, seat_count)
-                .group_by(lambda t: t.restaurant_id)
-                .map(lambda l: FINQ(l).map(lambda t: (t.restaurant_id, get_table_with_bookings(t, start, end)))
-                     .self(extract_key))
-                .map(lambda kl: (DatabaseController.get_restaurant(kl[0]), kl[1]))
-                .map(zip_restaurant)
-                .to_list()})
         response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
         return response
+
+    return ""
 
 
 @app.route("/static/restaurant/image")
