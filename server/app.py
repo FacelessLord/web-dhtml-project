@@ -86,7 +86,6 @@ def get_table_info(restaurant_identifier, table_number):
     return get_table(table)
 
 
-@app.route("/restaurants/<restaurant_identifier>/tables/<table_number>/book", methods=['POST'])
 def book_table_at_restaurant(restaurant_identifier, table_number):
     restaurant = DatabaseController.get_restaurant(restaurant_identifier)
     table = DatabaseController.get_table_from_number_and_restaurant(table_number, restaurant_identifier)
@@ -106,6 +105,13 @@ def book_table_at_restaurant(restaurant_identifier, table_number):
         return quote_fields({Fields.Success: True, Fields.BookingId: booking_id})
     else:
         return quote_fields({Fields.Success: False, Fields.Error: str(result)})
+
+
+@app.route("/restaurants/<restaurant_identifier>/tables/<table_number>/book", methods=['POST'])
+def book_table_at_restaurant_req(restaurant_identifier, table_number):
+    response = make_response(book_table_at_restaurant(restaurant_identifier, table_number))
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    return response
 
 
 @app.route("/bookings/<booking_id>", methods=['GET'])
@@ -135,7 +141,6 @@ def get_table_bookings(restaurant_identifier, table_number):
         return quote_fields({Fields.Success: False, Fields.Error: Errors.NoTable})
 
 
-@app.route("/bookings/<booking_id>/confirm", methods=['POST'])
 def confirm_booking(booking_id):
     if 'code' in request.args:
         err = DatabaseController.confirm_booking(booking_id, int(request.args['code']))
@@ -145,6 +150,13 @@ def confirm_booking(booking_id):
             return quote_fields({Fields.Success: True, Fields.Booking: get_booking(booking_id)})
 
     return quote_fields({Fields.Success: False, Fields.Error: Errors.NoConfirmationCode})
+
+
+@app.route("/bookings/<booking_id>/confirm", methods=['POST'])
+def confirm_booking_req(booking_id):
+    response = make_response(confirm_booking(booking_id))
+    response.headers["Access-Control-Allow-Origin"] = "http://127.0.0.1:3000"
+    return response
 
 
 def zip_restaurant(rt):

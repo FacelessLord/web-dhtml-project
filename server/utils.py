@@ -25,4 +25,4 @@ def booking_intersects_others(table, start_time, end_time) -> bool:
     return FINQ(table.bookings) \
         .filter(datetime_segment_day_intersections(start_time, end_time)) \
         .filter(lambda b: datetime_segment_intersection(start_time, end_time, b.booking_start_datetime,
-                                                        b.booking_end_datetime) > 0).any()
+                                                        b.booking_end_datetime).microseconds > 0).any()
