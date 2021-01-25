@@ -1,21 +1,18 @@
-import React, {useState} from "react";
+import React from "react";
 import {
   Button,
-  Card, CardActions, CardContent,
-  CardHeader, CardMedia, Checkbox, Collapse, Container, createStyles, FormControlLabel,
-  Grid, IconButton, makeStyles,
-  TextField, Theme, Typography
+  Card, Checkbox, FormControlLabel,
+  Grid, TextField
 } from "@material-ui/core";
 import {KeyboardDatePicker, KeyboardTimePicker, MuiPickersUtilsProvider} from "@material-ui/pickers";
 import {MaterialUiPickersDate} from "@material-ui/pickers/typings/date";
 import MomentUtils from "@date-io/moment";
 import moment, {Moment} from "moment";
-import {Host, Restaurant} from "./common";
+import {Host, Restaurant, Table} from "./common";
 import {Link} from "react-router-dom";
 import "./restaurant_card.css"
-import {red} from "@material-ui/core/colors";
-import {ExpandMore, LoopRounded} from "@material-ui/icons";
-import {TableCard} from "./TableCard";
+import {LoopRounded} from "@material-ui/icons";
+import {RestaurantCard} from "./RestaurantCard";
 
 interface SearchPageProps {
   setSearchResults: (r: Restaurant[]) => void;
@@ -36,6 +33,11 @@ export const DATEFORMAT = "HH:mm DD.MM.yyyy";
 export class SearchPage extends React.Component<SearchPageProps, SearchPageState> {
   state: SearchPageState = new SearchPageState();
 
+  constructor(props: SearchPageProps) {
+    super(props);
+    this.bookTable = this.bookTable.bind(this)
+  }
+
   componentDidMount() {
   }
 
@@ -43,6 +45,13 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
     return target.year(a.year()).month(a.month()).date(a.date())
   }
 
+  bookTable(restaurant: Restaurant, table: Table, startTime: Moment, endTime: Moment, email:string): void {
+    fetch(Host + `/restaurants/${restaurant.id}/tables/${table.tableNumber}/book`, {
+      method: "POST", body: JSON.stringify({booking_start_datetime:startTime.format(DATEFORMAT),
+      booking_end_datetime:endTime.format(DATEFORMAT),
+      email: email}), mode: "cors"
+    })
+  }
 
   render() {
     return <div className={"background"}>
@@ -145,97 +154,22 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
       </div>
       <Grid container direction={"column"} className={"restaurantCards"}>
         <div id={"resultAnchor"}/>
-        {renderSearchResults(this.state)}
+        {this.renderSearchResults()}
       </Grid>
     </div>
   }
-}
 
-function renderSearchResults(state: SearchPageState) {
-  switch (state.state) {
-    case "await":
-      return ""
-    case "loading":
-      return (<Card className={"restaurantCardAuxiliary"}><LoopRounded className={"spin loadingIcon"}/></Card>)
-    case "loaded":
-      return state.restaurants.map(r => <RestaurantCard key={r.id} restaurant={r}/>)
-    case "errored":
-      return (<Card className={"restaurantCardAuxiliary"}>Произошла ошибка при загрузке. Попробуйте через несколько
-        минут</Card>)
+  renderSearchResults() {
+    switch (this.state.state) {
+      case "await":
+        return ""
+      case "loading":
+        return (<Card className={"restaurantCardAuxiliary"}><LoopRounded className={"spin loadingIcon"}/></Card>)
+      case "loaded":
+        return this.state.restaurants.map(r => <RestaurantCard key={r.id} restaurant={r} bookTable={this.bookTable}/>)
+      case "errored":
+        return (<Card className={"restaurantCardAuxiliary"}>Произошла ошибка при загрузке. Попробуйте через несколько
+          минут</Card>)
+    }
   }
 }
-
-
-function formatSuitableTables(count: number) {
-  const countMod100 = count % 100;
-  if (countMod100 % 10 === 1)
-    return "подходящий столик"
-  if (~[2, 3, 4].indexOf(countMod100 % 10))
-    return "подходящих столика"
-  return "подходящих столиков"
-}
-
-interface RestaurantCardProps {
-  restaurant: Restaurant;
-}
-
-function RestaurantCard(props: RestaurantCardProps) {
-  const classes = useStyles();
-  const [expanded, setExpanded] = useState<boolean>(false)
-
-  return (<Card className={"restaurantCard"}>
-    <Grid container direction={"row"} wrap={"nowrap"}>
-      <CardMedia
-        className={"restaurantImage"}
-        image={Host + `/static/restaurant/image?restaurant_id=` + props.restaurant.id}
-        title="Paella dish"
-      />
-      <Container className={"restaurantInfo"}>
-        <CardHeader
-          className={"restaurantHeader"}
-          title={props.restaurant.restaurantName}
-          subheader={`${props.restaurant.tables.length} ${formatSuitableTables(props.restaurant.tables.length)}`}
-        />
-        <CardActions disableSpacing>
-          <IconButton
-            className={"expandButton " + classes.expand + (expanded ? (" " + classes.expandOpen) : "")}
-            onClick={() => setExpanded(!expanded)}
-            aria-expanded={expanded}
-            aria-label="show more">
-            <ExpandMore/>
-          </IconButton>
-        </CardActions>
-      </Container>
-    </Grid>
-    <Collapse in={expanded}>
-      <CardContent className={"restaurantTables"}>
-        {props.restaurant.tables.map(t => <TableCard table={t} restaurant={props.restaurant}/>)}
-      </CardContent>
-    </Collapse>
-  </Card>)
-}
-
-const useStyles = makeStyles((theme: Theme) =>
-  createStyles({
-    root: {
-      maxWidth: 345,
-    },
-    media: {
-      height: 0,
-      paddingTop: '56.25%', // 16:9
-    },
-    expand: {
-      transform: 'rotate(0deg)',
-      marginLeft: 'auto',
-      transition: theme.transitions.create('transform', {
-        duration: theme.transitions.duration.shortest,
-      }),
-    },
-    expandOpen: {
-      transform: 'rotate(180deg)',
-    },
-    avatar: {
-      backgroundColor: red[500],
-    },
-  }),
-);

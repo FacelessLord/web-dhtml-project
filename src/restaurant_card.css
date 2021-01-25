@@ -21,3 +21,7 @@
     text-align: left;
     margin: 8px auto 0;
 }
+
+.alignRight.alignRight.alignRight {
+    float: right;
+}

@@ -1,118 +1,136 @@
-import {Card, CardHeader} from "@material-ui/core";
-import React from "react";
-import {Booking, Restaurant, Table} from "./common";
+import {Button, Card, Container, Grid, TextField} from "@material-ui/core";
+import React, {useState} from "react";
 import "./time_tracker.css"
-import {DATEFORMAT} from "./SearchPage";
-import moment from "moment";
+import {TableTimeTracker} from "./TableTimeTracker";
+import {intersector, Restaurant, Table} from "./common";
+import moment, {Moment} from "moment";
+import {KeyboardDatePicker, KeyboardTimePicker, MuiPickersUtilsProvider} from "@material-ui/pickers";
+import {MaterialUiPickersDate} from "@material-ui/pickers/typings/date";
+import {Link} from "react-router-dom";
+import MomentUtils from "@date-io/moment";
+import {EmailInput} from "./Emailnput";
+
 
 interface TableCardProps {
   table: Table;
   restaurant: Restaurant;
+  bookTable: (restaurant: Restaurant, table: Table, startTime: Moment, endTime: Moment, email: string) => void;
+}
+
+class TableTimeTrackerState {
+  bookingStart: Moment | undefined;
+  bookingEnd: Moment | undefined;
+  isBooking: boolean = false;
+  intersection: boolean = false;
+  email: string = '';
 }
 
 export function TableCard(props: TableCardProps) {
+  const [state, setState] = useState<TableTimeTrackerState>(new TableTimeTrackerState())
+
   return <Card className={"tableCard"}>
     <div style={{marginBottom: '8px'}}>Столик №{props.table.tableNumber}</div>
-    <TableTimeTracker table={props.table} restaurant={props.restaurant}/>
+    <TableTimeTracker table={props.table} restaurant={props.restaurant} bookingEnd={state.bookingEnd}
+                      bookingStart={state.bookingStart}/>
+    {state.isBooking ? <OrderForm state={state} setState={setState} props={props}/> :
+      <Button className={"alignRight"} variant="contained" color="primary" onClick={e => {
+
+        setState({...state, bookingStart: moment(), bookingEnd: moment(), isBooking: !state.isBooking})
+      }}>
+        Выбрать время бронирования
+      </Button>}
   </Card>
 }
 
-function TableTimeTracker(props: TableCardProps) {
-  const restaurant = props.restaurant;
-
-  const workdayEnd = +restaurant.workdayEnd.substring(0, 2);
-  const workdayStart = +restaurant.workdayStart.substring(0, 2);
-  const table = props.table;
-
-  const hourCount = (workdayEnd - workdayStart + 24) % 24
-
-  const bookingsSorted = table.bookings.sort((a, b) =>
-    moment(a.booking_start_datetime, DATEFORMAT).isAfter(moment(b.booking_start_datetime, DATEFORMAT)) ? 1 : (
-      moment(a.booking_start_datetime, DATEFORMAT).isBefore(moment(b.booking_start_datetime, DATEFORMAT)) ? -1 : 0))
-
-  return (<div className={"timeTracker"}>
-    <HourGrid count={hourCount} startHour={workdayStart}/>
-    <TimeGrid count={hourCount} startHour={workdayStart}/>
-    <BookingGrid bookings={bookingsSorted} restaurant={restaurant}/>
-  </div>)
-}
-
-function HourGrid({count, startHour}: { count: number, startHour: number }) {
-  const l: JSX.Element[] = [];
-  let hour = startHour;
-  for (let i = 0; i < count + 1; i++, hour++)
-    l.push(<div>{(hour % 24).toString().padStart(2, '0')}<span className={"small"}>:00</span></div>)
-  return <div className={"widegrid"}>
-    {l}
-  </div>
-}
-
-function TimeGrid({count, startHour}: {
-  count: number,
-  startHour: number
+function OrderForm({state, setState, props}: {
+  state: TableTimeTrackerState, setState: React.Dispatch<TableTimeTrackerState>,
+  props: TableCardProps;
 }) {
-  const l: JSX.Element[] = [];
-  let hour = startHour;
-  l.push(<div className={"hour first"}/>)
-  for (let i = 1; i < count - 1; i++, hour++)
-    l.push(<div className={"hour"}/>)
-  l.push(<div className={"hour last"}/>)
+  return <Grid container direction={"column"}>
+    <MuiPickersUtilsProvider utils={MomentUtils}>
+      <Grid container wrap={"nowrap"} justify="space-evenly" direction={"row"}>
+        <KeyboardTimePicker
+          margin="normal"
+          id="time-picker"
+          label="Время начала"
+          format={"HH:mm"}
+          ampm={false}
+          value={state.bookingStart}
+          onChange={(startTime: MaterialUiPickersDate) => {
+            if (startTime) {
+              const intersections = props.table.bookings.filter(intersector(startTime)).length
 
+              const workdayStart = +props.restaurant.workdayStart.substring(0, 2)
+              const workdayEnd = +props.restaurant.workdayEnd.substring(0, 2)
+              const workdayEndMinute = +props.restaurant.workdayEnd.substring(3, 5)
 
-  return <div className={"widegrid"}>
-    {l}
-  </div>
-}
+              if (startTime.hour() > workdayEnd || (startTime.hour() === workdayEnd && startTime.minute() > workdayEndMinute)) {
+                startTime.hour(workdayEnd).minute(workdayEndMinute - 30)
+              }
+              if (startTime.hour() < workdayStart) {
+                startTime.hour(workdayStart).minute(0)
+              }
 
-function BookingGrid({bookings, restaurant}: {
-  bookings: Booking[],
-  restaurant: Restaurant
-}) {
-  const l: JSX.Element[] = [];
-  for (let i = 0; i < bookings.length; i++) {
-    l.push(<BookingSegment restaurant={restaurant} booking={bookings[i]}/>)
-  }
+              if (startTime.isAfter(state.bookingEnd)) {
+                setState({
+                  ...state,
+                  bookingStart: startTime,
+                  bookingEnd: startTime.clone().add(30, 'minutes'),
+                  intersection: intersections > 0
+                })
+              } else
+                setState({...state, bookingStart: startTime, intersection: intersections > 0})
+            }
+          }}
+          KeyboardButtonProps={{
+            'aria-label': 'change time',
+          }}/>
+        <KeyboardTimePicker
+          margin="normal"
+          id="time-picker"
+          label="Время окончания"
+          format={"HH:mm"}
+          ampm={false}
+          value={state.bookingEnd}
+          onChange={(endTime: MaterialUiPickersDate) => {
+            if (endTime) {
+              const intersections = props.table.bookings.filter(intersector(endTime)).length
 
-  return <div className={"bookinggrid"}>
-    {l}
-  </div>
-}
+              const workdayStart = +props.restaurant.workdayStart.substring(0, 2)
+              const workdayEnd = +props.restaurant.workdayEnd.substring(0, 2)
+              const workdayEndMinute = +props.restaurant.workdayEnd.substring(3, 5)
 
-function BookingSegment({restaurant, booking}: { restaurant: Restaurant, booking: Booking }) {
-  const start = moment(booking.booking_start_datetime, DATEFORMAT)
-  const end = moment(booking.booking_end_datetime, DATEFORMAT)
+              if (endTime.hour() < workdayStart) {
+                endTime.hour(workdayStart).minute(30)
+              }
+              if (endTime.hour() > workdayEnd || (endTime.hour() === workdayEnd && endTime.minute() > workdayEndMinute)) {
+                endTime.hour(workdayEnd).minute(workdayEndMinute)
+              }
 
-  const workdayEndHour = +restaurant.workdayEnd.substring(0, 2);
-  const workdayStartHour = +restaurant.workdayStart.substring(0, 2);
-  const workdayEndMinute = +restaurant.workdayEnd.substring(3, 5);
-  const workdayStartMinute = +restaurant.workdayStart.substring(3, 5);
-
-
-  const workdayStart = moment().year(start.year()).month(start.month())
-    .date(start.date()).hour(workdayStartHour).minute(workdayStartMinute)
-  const workdayEnd = moment().year(end.year()).month(end.month())
-    .date(end.date()).hour(workdayEndHour).minute(workdayEndMinute)
-
-  const renderStart = start.diff(workdayStart, 'minutes')
-  const renderEnd = end.diff(workdayStart, 'minutes')
-  const renderWidth = workdayEnd.diff(workdayStart, 'minutes')
-
-  const classes = ["hour", "booking"]
-
-  const offsetStart = 100 * renderStart / (renderWidth);
-  const offsetEnd = 100 * renderEnd / (renderWidth);
-
-  if (renderStart <= 0) {
-    classes.push("first")
-  }
-  if (renderEnd >= renderWidth - 1) {
-    classes.push("last")
-  }
-
-  return <div className={classes.join(" ")}
-              style={{
-                position: "absolute",
-                left: offsetStart + "%",
-                width: (offsetEnd - offsetStart) + "%"
-              }}/>
+              if (endTime.isBefore(state.bookingStart))
+                setState({
+                  ...state,
+                  bookingEnd: endTime,
+                  bookingStart: endTime.clone().add(-30, 'minutes'),
+                  intersection: intersections > 0
+                })
+              else
+                setState({...state, bookingEnd: endTime, intersection: intersections > 0})
+            }
+          }}
+          KeyboardButtonProps={{
+            'aria-label': 'change time',
+          }}/>
+        <EmailInput value={state.email} setValue={value => setState({...state, email: value})}/>
+      </Grid>
+    </MuiPickersUtilsProvider>
+    <Container>
+      <Button className={"alignRight"} variant="contained" color="primary" onClick={e => {
+        props.bookTable(props.restaurant, props.table, state.bookingStart as Moment,
+          state.bookingEnd as Moment, state.email)
+      }}>
+        Забронировать
+      </Button>
+    </Container>
+  </Grid>
 }
