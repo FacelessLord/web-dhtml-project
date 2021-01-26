@@ -27,7 +27,7 @@ class Booking(db.Model):
     confirmed = db.Column(db.Boolean, default=False)
     # if not confirmed in 5-10 minutes, it'll be cancelled
     booking_start_time = db.Column(db.DateTime, default=datetime.now())
-    confirmation_code = db.Column(db.Integer, default=random_code(6))
+    confirmation_code = db.Column(db.Integer, default=lambda: random_code(6))
 
 
 class Table(db.Model):

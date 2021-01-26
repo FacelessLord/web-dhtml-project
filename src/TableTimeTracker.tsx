@@ -1,12 +1,8 @@
 import moment, {Moment} from "moment";
 import {DATEFORMAT} from "./SearchPage";
 import {Booking, Restaurant, Table} from "./common";
-import React, {useState} from "react";
+import React from "react";
 
-interface TimeSetters {
-  setBookingStart: (m: Moment) => void;
-  setBookingEnd: (m: Moment) => void;
-}
 
 interface TableTimeTrackerProps {
   table: Table;

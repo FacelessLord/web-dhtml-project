@@ -2,23 +2,24 @@ import React from "react";
 import {
   Button,
   Card, Checkbox, FormControlLabel,
-  Grid, TextField
+  Grid, Modal, Switch, TextField
 } from "@material-ui/core";
 import {KeyboardDatePicker, KeyboardTimePicker, MuiPickersUtilsProvider} from "@material-ui/pickers";
 import {MaterialUiPickersDate} from "@material-ui/pickers/typings/date";
 import MomentUtils from "@date-io/moment";
 import moment, {Moment} from "moment";
 import {Host, Restaurant, Table} from "./common";
-import {Link} from "react-router-dom";
 import "./restaurant_card.css"
 import {LoopRounded} from "@material-ui/icons";
 import {RestaurantCard} from "./RestaurantCard";
+import {DatePicker, EndTimePicker, SeatsCountPicker, StartTimePicker} from "./Pickers";
+import {SearchButton} from "./SearchButton";
+import {ConfirmationCodeModal} from "./ConfirmationCodeModal";
 
 interface SearchPageProps {
-  setSearchResults: (r: Restaurant[]) => void;
 }
 
-class SearchPageState {
+export class SearchPageState {
   startTime: Moment = moment();
   endTime: Moment = moment().add(1, "hour");
   startDate: Moment = moment();
@@ -26,9 +27,12 @@ class SearchPageState {
   restaurants: Restaurant[] = [];
   state: "await" | "loading" | "loaded" | "errored" = "await"
   searchAll: boolean = false;
+  modalState: "closed"|"awaitingCode"|"success" = "closed";
+  bookingId: number = 0;
 }
 
 export const DATEFORMAT = "HH:mm DD.MM.yyyy";
+
 
 export class SearchPage extends React.Component<SearchPageProps, SearchPageState> {
   state: SearchPageState = new SearchPageState();
@@ -45,111 +49,63 @@ export class SearchPage extends React.Component<SearchPageProps, SearchPageState
     return target.year(a.year()).month(a.month()).date(a.date())
   }
 
-  bookTable(restaurant: Restaurant, table: Table, startTime: Moment, endTime: Moment, email:string): void {
+  bookTable(restaurant: Restaurant, table: Table, startTime: Moment, endTime: Moment, email: string): void {
     fetch(Host + `/restaurants/${restaurant.id}/tables/${table.tableNumber}/book`, {
-      method: "POST", body: JSON.stringify({booking_start_datetime:startTime.format(DATEFORMAT),
-      booking_end_datetime:endTime.format(DATEFORMAT),
-      email: email}), mode: "cors"
+      method: "POST", body: JSON.stringify({
+        booking_start_datetime: startTime.format(DATEFORMAT),
+        booking_end_datetime: endTime.format(DATEFORMAT),
+        email: email
+      }), mode: "cors"
     })
+      .then(t => t.json())
+      .then(value => this.setState({bookingId: value.bookingId}))
+      .then(() => {
+        window.addEventListener("unload", function (e) {
+          // Cancel the event
+          e.preventDefault()
+          return '';
+        });
+      })
+      .then(() => this.setState({modalState: 'awaitingCode'}))
+  }
+
+  sendConfirm(code: number): void {
+    fetch(Host + `/bookings/${this.state.bookingId}/confirm?code=${code}`, {
+      method: "POST"
+    }).then(() => this.setState({modalState: 'success'}))
+      .then(() => new Promise((resolve => setInterval(resolve, 1000))))
+      .then(() => this.setState({modalState: 'closed'}))
+  }
+
+  closeModal() {
+    this.setState({modalState: 'closed'})
   }
 
   render() {
     return <div className={"background"}>
       <div className={"form"}>
-        <Link id={"resultsLink"} style={{display: "none"}} to={"/results"}>Results</Link>
         <MuiPickersUtilsProvider utils={MomentUtils}>
           <Grid container justify="space-around" direction={"column"}>
             <h1>Поиск ресторана</h1>
             <p>Введите необходимые данные и мы найдём для вас подходящий ресторан</p>
-            <KeyboardDatePicker
-              className={"datepicker"}
-              margin="normal"
-              id="date-picker-dialog"
-              label="Дата"
-              format="DD.MM.yyyy"
-              value={this.state.startDate}
-              onChange={(datetime: MaterialUiPickersDate) => {
-                console.log("2q2r")
-                if (datetime) {
-                  this.setState({startDate: datetime})
-                }
-              }}
-              KeyboardButtonProps={{
-                'aria-label': 'change date',
-              }}
-            />
+            <DatePicker startDate={this.state.startDate} setDate={datetime => this.setState({startDate: datetime})}/>
             <Grid container wrap={"nowrap"} justify="space-evenly" direction={"row"}>
-              <KeyboardTimePicker
-                margin="normal"
-                id="time-picker"
-                label="Время начала"
-                format={"HH:mm"}
-                ampm={false}
-                value={this.state.startTime}
-                onChange={(startTime: MaterialUiPickersDate) => {
-                  if (startTime)
-                    if (startTime.isAfter(this.state.endTime)) {
-                      this.setState({startTime, endTime: startTime.clone().add(30, 'minutes')})
-                    } else
-                      this.setState({startTime})
-                }}
-                KeyboardButtonProps={{
-                  'aria-label': 'change time',
-                }}/>
-              <KeyboardTimePicker
-                margin="normal"
-                id="time-picker"
-                label="Время окончания"
-                format={"HH:mm"}
-                ampm={false}
-                value={this.state.endTime}
-                onChange={(endTime: MaterialUiPickersDate) => {
-                  if (endTime)
-                    if (endTime.isBefore(this.state.startTime))
-                      this.setState({endTime, startTime: endTime.clone().add(-30, 'minutes')})
-                    else
-                      this.setState({endTime})
-                }}
-                KeyboardButtonProps={{
-                  'aria-label': 'change time',
-                }}/>
+              <StartTimePicker startTime={this.state.startTime} endTime={this.state.endTime}
+                               setState={v => this.setState(v)}/>
+              <EndTimePicker startTime={this.state.startTime} endTime={this.state.endTime}
+                             setState={v => this.setState(v)}/>
             </Grid>
-            <TextField
-              margin="normal"
-              id="seat-count"
-              label="Количество мест"
-              type="number"
-              value={this.state.seatsCount}
-              onChange={e => this.setState({seatsCount: +e.target.value})}
-              InputLabelProps={{
-                shrink: true,
-              }}/>
+            <SeatsCountPicker seatsCount={this.state.seatsCount} setState={v => this.setState(v)}/>
             <FormControlLabel
-              control={<Checkbox checked={this.state.searchAll}
-                                 color="primary"
-                                 onChange={() => this.setState({searchAll: !this.state.searchAll})}
-                                 name="searchAllCheckBox"/>}
+              control={<Switch checked={!this.state.searchAll}
+                               color="primary"
+                               onChange={() => this.setState({searchAll: !this.state.searchAll})}
+                               name="searchAllCheckBox"/>}
               label={this.state.searchAll ? "Искать по всем ресторанам" : "Искать только подходящие рестораны"}/>
-            <Button variant="contained" color="primary" onClick={e => {
-              const startDatetime = this.state.startDate.clone().hour(this.state.startTime.hour()).minute(this.state.startTime.minute())
-              const endDatetime = this.state.startDate.clone().hour(this.state.endTime.hour()).minute(this.state.endTime.minute())
-              if (startDatetime.isAfter(endDatetime))
-                endDatetime.add(1, "hour")
-
-              this.setState({state: "loading"})
-              fetch(Host + `/search?startDatetime=${startDatetime.format(DATEFORMAT)}` +
-                `&endDatetime=${endDatetime.format(DATEFORMAT)}&` +
-                `seatsCount=${this.state.seatsCount}&` +
-                `searchAll=${this.state.searchAll}`)
-                .then(t => t.json())
-                .then(result => this.setState({restaurants: result.restaurants, state: "loaded"}))
-                .then(() => document.getElementById("resultAnchor")
-                  ?.scrollIntoView({block: "start", behavior: "smooth"}))
-                .catch(e => this.setState({state: "errored"}))
-            }}>
-              Искать
-            </Button>
+            <SearchButton setState={v => this.setState(v)} {...this.state}/>
           </Grid>
+          <ConfirmationCodeModal modalState={this.state.modalState} sendConfirm={this.sendConfirm.bind(this)}
+                                 closeModal={this.closeModal.bind(this)}/>
         </MuiPickersUtilsProvider>
       </div>
       <Grid container direction={"column"} className={"restaurantCards"}>

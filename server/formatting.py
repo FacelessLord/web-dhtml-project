@@ -14,4 +14,4 @@ def format_length(num: int, size: int, filler: str = "0"):
 
 
 def random_code(length: int):
-    return format_length(randint(0, 10 ** length), length)
+    return format_length(randint(0, 10 ** length-1), length)

@@ -95,10 +95,8 @@ def book_table_at_restaurant(restaurant_identifier, table_number):
     endTime = datetime.strptime(book_info[Fields.BookingEndDatetime.value], DATEFORMAT)
     email = book_info[Fields.Email.value]
 
-    booked, result, booking_id = DatabaseController.pre_book_table(startTime,
-                                                                   endTime,
-                                                                   email,
-                                                                   table.id)
+    booked, result, booking_id = DatabaseController.pre_book_table(startTime, endTime, email, table.id)
+
     if booked:
         MailController.send_confirmation_code(email, result, booking_id, startTime, endTime, table_number,
                                               restaurant.restaurant_name)
@@ -155,7 +153,7 @@ def confirm_booking(booking_id):
 @app.route("/bookings/<booking_id>/confirm", methods=['POST'])
 def confirm_booking_req(booking_id):
     response = make_response(confirm_booking(booking_id))
-    response.headers["Access-Control-Allow-Origin"] = "http://127.0.0.1:3000"
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
     return response
 
 

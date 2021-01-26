@@ -39,4 +39,4 @@ def send_confirmation_code(recipient: str, code: int, booking_id: int, start_tim
                            table_number: int, restaurant_name: str):
     send_html_message("Подтверждение брони", [recipient],
                       confirmation_template.format(table_number, restaurant_name, start_time.strftime(DATEFORMAT),
-                                                   end_time.strftime(DATEFORMAT), HOSTNAME, booking_id, code))
+                                                   end_time.strftime(DATEFORMAT), code))
